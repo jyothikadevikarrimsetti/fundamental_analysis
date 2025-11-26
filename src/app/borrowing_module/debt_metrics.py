@@ -81,3 +81,4 @@ def compute_per_year_metrics(financials_5y, midd) -> Dict[int, dict]:
 
     return metrics
 
+

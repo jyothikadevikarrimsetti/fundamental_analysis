@@ -61,7 +61,7 @@ class FinancialData(BaseModel):
 
 
 class AnalyzeRequest(BaseModel):
-    year: int  # e.g. "Mar 2024"
+    # year: int  # e.g. "Mar 2024"
     company: str
     financial_data: FinancialData   # <-- EXACT INPUT YOU WANTED
 
