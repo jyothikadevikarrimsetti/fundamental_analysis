@@ -25,6 +25,8 @@ from src.app.borrowing_module.debt_models import (
     CovenantLimits,
 )
 from src.app.borrowing_module.debt_orchestrator import run_borrowings_module
+from src.app.capex_cwip_module.orchestrator import run_capex_cwip_module
+
 
 
 
@@ -35,15 +37,18 @@ from src.app.borrowing_module.debt_orchestrator import run_borrowings_module
 
 class FinancialYearInput(BaseModel):
     year: int
-    short_term_debt: float
+    short_term_debt: Optional[float] = None
     long_term_debt: float
-    total_equity: float
+    total_equity: Optional[float] = None
     revenue : float
-    ebitda: float
-    ebit: float
-    finance_cost: float
+    ebitda: Optional[float] = None
+    ebit: Optional[float] = None
+    finance_cost: Optional[float] = None
     capex: float
     cwip: float
+    net_fixed_assets: float
+    operating_cash_flow: float
+    free_cash_flow: float
 
     total_debt_maturing_lt_1y: Optional[float] = None
     total_debt_maturing_1_3y: Optional[float] = None
@@ -67,31 +72,8 @@ class FinancialData(BaseModel):
     # weighted_avg_interest_rate: float
     # floating_rate_debt: float
     # fixed_rate_debt: float
-
-
-class AnalyzeRequest(BaseModel):
-    #year: int  # e.g. "Mar 2024"
-    company: str
-    financial_data: FinancialData   # <-- EXACT INPUT YOU WANTED
-
-
-# ---------------------------------------------------------
-# FASTAPI APP
-# ---------------------------------------------------------
-app = FastAPI(
-    title="Borrowings Analytical Engine",
-    version="1.0",
-    description="API for 1-year borrowings analysis"
-)
-
-
-# ---------------------------------------------------------
-# MAIN API
-# ---------------------------------------------------------
-@app.post("/analyze")
-def analyze(req: AnalyzeRequest):
-    try:
-        company = req.company.upper()
+def execute_borrowings_analysis(req: BorrowingsInput):
+        company = req.company_id
         fd = req.financial_data
 
         fds = fd.financial_years
@@ -120,38 +102,38 @@ def analyze(req: AnalyzeRequest):
             yfis.append(yfi)
 
             
-        # midd = {
+        midd = {
 
-        #     "total_debt_maturing_lt_1y" : fd.total_debt_maturing_lt_1y,
-        #     "total_debt_maturing_1_3y" : fd.total_debt_maturing_1_3y,
-        #     "total_debt_maturing_gt_3y" : fd.total_debt_maturing_gt_3y,
+            "total_debt_maturing_lt_1y" : fd.total_debt_maturing_lt_1y,
+            "total_debt_maturing_1_3y" : fd.total_debt_maturing_1_3y,
+            "total_debt_maturing_gt_3y" : fd.total_debt_maturing_gt_3y,
 
-        #     "weighted_avg_interest_rate" : fd.weighted_avg_interest_rate,
-        #     "floating_rate_debt" : fd.floating_rate_debt or 0,
-        #     "fixed_rate_debt" : fd.fixed_rate_debt,
+            "weighted_avg_interest_rate" : fd.weighted_avg_interest_rate,
+            "floating_rate_debt" : fd.floating_rate_debt or 0,
+            "fixed_rate_debt" : fd.fixed_rate_debt,
             
-        # }        
+        }        
         
-        # fin = YearFinancialInput(
-        #         # year=fd.year,
-        #         # short_term_debt=fd.short_term_debt,
-        #         # long_term_debt=fd.long_term_debt,
-        #         # total_equity=fd.total_equity,
-        #         # ebitda=fd.ebitda,
-        #         # ebit=fd.ebit,
-        #         # finance_cost=fd.finance_cost,
-        #         # capex=fd.capex,
-        #         # cwip=fd.cwip,
-        #     financial_years = fds,
+        fin = YearFinancialInput(
+                # year=fd.year,
+                # short_term_debt=fd.short_term_debt,
+                # long_term_debt=fd.long_term_debt,
+                # total_equity=fd.total_equity,
+                # ebitda=fd.ebitda,
+                # ebit=fd.ebit,
+                # finance_cost=fd.finance_cost,
+                # capex=fd.capex,
+                # cwip=fd.cwip,
+            financial_years = fds,
 
-        #     total_debt_maturing_lt_1y=fd.total_debt_maturing_lt_1y,
-        #     total_debt_maturing_1_3y=fd.total_debt_maturing_1_3y,
-        #     total_debt_maturing_gt_3y=fd.total_debt_maturing_gt_3y,
+            total_debt_maturing_lt_1y=fd.total_debt_maturing_lt_1y,
+            total_debt_maturing_1_3y=fd.total_debt_maturing_1_3y,
+            total_debt_maturing_gt_3y=fd.total_debt_maturing_gt_3y,
 
-        #     weighted_avg_interest_rate=fd.weighted_avg_interest_rate,
-        #     floating_rate_debt=fd.floating_rate_debt,
-        #     fixed_rate_debt=fd.fixed_rate_debt,
-        # )   
+            weighted_avg_interest_rate=fd.weighted_avg_interest_rate,
+            floating_rate_debt=fd.floating_rate_debt,
+            fixed_rate_debt=fd.fixed_rate_debt,
+        )   
 
         module_input = BorrowingsInput(
             company_id=company,
@@ -171,7 +153,34 @@ def analyze(req: AnalyzeRequest):
         )
 
         result = run_borrowings_module(module_input)
-        return result.model_dump()
+        return result
+
+class AnalyzeRequest(BaseModel):
+    #year: int  # e.g. "Mar 2024"
+    company: str
+    financial_data: FinancialData   # <-- EXACT INPUT YOU WANTED
+
+
+# ---------------------------------------------------------
+# FASTAPI APP
+# ---------------------------------------------------------
+app = FastAPI(
+    title="Borrowings Analytical Engine",
+    version="1.0",
+    description="API for 1-year borrowings analysis"
+)
+
+
+# ---------------------------------------------------------
+# MAIN API
+# ---------------------------------------------------------
+@app.post("/analyze")
+def analyze(req: AnalyzeRequest):
+    try:
+
+        # result = execute_borrowings_analysis(req)
+        result = run_capex_cwip_module(req)
+        return result
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
