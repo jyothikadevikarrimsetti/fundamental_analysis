@@ -166,8 +166,14 @@ def compute_trends(yearly: Dict[int, dict]) -> Dict[str, any]:
         "nfa_yoy": nfa_yoy,
         "revenue_yoy": revenue_yoy,
 
+        # Raw series required by orchestrator
+        "cwip_series": cwip_series,
+        "capex_series": capex_series,
+        "nfa_series": nfa_series,
+
         # Trend flags
         "cwip_increasing_3y": cwip_increasing_3y,
         "capex_increasing_3y": capex_increasing_3y,
         "nfa_increasing_3y": nfa_increasing_3y,
     }
+
