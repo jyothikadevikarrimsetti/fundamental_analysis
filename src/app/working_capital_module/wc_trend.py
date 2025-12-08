@@ -76,7 +76,7 @@ def generate_insight(yoy_list: List[Optional[float]], metric_name: str) -> str:
         # Simple heuristic: compare last point vs first point of the available series
         # Note: yoy_list passed here should probably be chronological for this logic to make sense?
         # The example code passed `st_yoy_list` which was constructed chronologically.
-        
+        print(f"DEBUG: {metric_name} YoY List for insight: {numeric}")
         if numeric[-1] > numeric[0] * 1.20: # This logic in the example seems to compare the *growth rates* themselves?
             # "numeric[-1] > numeric[0] * 1.20" means the latest growth rate is 20% higher than the earliest growth rate in the list.
             # This implies "accelerating growth" (growth rate is increasing).

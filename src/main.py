@@ -4,7 +4,10 @@ import sys
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
+from fastapi import Request
+from src.app.working_capital_module.wc_orchestrator import run_working_capital_module
 
 # Ensure package imports work when running `python src/main.py`
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -47,20 +50,26 @@ DEFAULT_ASSET_BENCHMARKS = IndustryAssetBenchmarks()
 
 # ---------- API Request Schemas ----------
 class FinancialYearInput(BaseModel):
-    year: int
-    short_term_debt: float = Field(ge=0)
-    long_term_debt: float = Field(ge=0)
-    total_equity: float = Field(ge=0)
-    ebitda: float
-    ebit: float
-    finance_cost: float
-    capex: float = 0
-    cwip: float = 0
-    revenue: float = 0
-    operating_cash_flow: float = 0
+    year: Optional[int]
+    short_term_debt: Optional[float]
+    long_term_debt: Optional[float]
+    total_equity: Optional[float]
+    revenue : Optional[float]
+    ebitda: Optional[float]
+    ebit: Optional[float]
+    finance_cost: Optional[float]
+    capex: Optional[float]
+    cwip: Optional[float]
+    trade_receivables: Optional[float] = None
+    trade_payables: Optional[float] = None
+    inventory: Optional[float] = None
+    revenue: Optional[float] = None
+    cogs: Optional[float] = None
+
     total_debt_maturing_lt_1y: Optional[float] = None
     total_debt_maturing_1_3y: Optional[float] = None
     total_debt_maturing_gt_3y: Optional[float] = None
+
     weighted_avg_interest_rate: Optional[float] = None
     floating_rate_debt: Optional[float] = None
     fixed_rate_debt: Optional[float] = None
@@ -112,8 +121,9 @@ asset_quality_engine = AssetIntangibleQualityModule()
 
 
 @app.post("/borrowings/analyze")
-def analyze_borrowings(req: BorrowingsRequest):
+async def analyze_borrowings(req: Request):
     try:
+        req = BorrowingsRequest(**await req.json())
         financial_years = [
             YearFinancialInput(**fy.dict())
             for fy in req.financial_data.financial_years
@@ -135,8 +145,9 @@ def analyze_borrowings(req: BorrowingsRequest):
 
 
 @app.post("/asset_quality/analyze")
-def analyze_asset_quality(req: AssetQualityRequest):
+async def analyze_asset_quality(req: Request):
     try:
+        req = AssetQualityRequest(**await req.json())
         financial_years = [
             AssetFinancialYearInput(**fy.dict())
             for fy in req.financial_data.financial_years
@@ -155,8 +166,21 @@ def analyze_asset_quality(req: AssetQualityRequest):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
+@app.post("/working_capital_module/analyze")
+async def analyze(request: Request):
+    try:
+        input_data = await request.json()
+        print("Input to WC Module:", input_data)
+
+        result = run_working_capital_module(input_data)
+        
+        return result
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 if __name__ == "__main__":
     import uvicorn
+
 
     uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True)

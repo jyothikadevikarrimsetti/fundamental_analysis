@@ -222,6 +222,7 @@ def run_working_capital_module(payload: dict):
 
     try:
         module = WorkingCapitalModule()
+        
         input_data = WorkingCapitalInput(**payload)
         print("DEBUG: Input data parsed successfully. Running module...")
 

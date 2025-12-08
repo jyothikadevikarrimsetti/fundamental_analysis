@@ -28,6 +28,7 @@ def wc_rule_engine(metrics: Dict, trends: Dict, rules: any) -> List[RuleResult]:
     nwc_ratio = latest.get("nwc_ratio")
     nwc_cagr = latest.get("nwc_cagr")
     revenue_cagr = latest.get("revenue_cagr")
+    print(f"DEBUG: Latest Metrics - DSO: {dso}, DIO: {dio}, DPO: {dpo}, CCC: {ccc}, NWC Ratio: {nwc_ratio}, NWC CAGR: {nwc_cagr}, Revenue CAGR: {revenue_cagr}")
     
     # Assuming 'latest' metrics correspond to the most recent year available
     # We don't have the explicit year in 'metrics["latest"]', so we might use "Latest" or 0
@@ -44,7 +45,7 @@ def wc_rule_engine(metrics: Dict, trends: Dict, rules: any) -> List[RuleResult]:
     inv_yoy = get_latest_yoy("inventory")
     payables_yoy = get_latest_yoy("trade_payables")
     rev_yoy = get_latest_yoy("revenue")
-
+    print(f"DEBUG: Retrieved YoY - Receivables: {rcv_yoy}, Inventory: {inv_yoy}, Payables: {payables_yoy}, Revenue: {rev_yoy}")
     # ============================================================
     # A. RECEIVABLES & COLLECTION EFFICIENCY
     # ============================================================

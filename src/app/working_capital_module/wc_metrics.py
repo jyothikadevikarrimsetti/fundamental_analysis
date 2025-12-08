@@ -50,6 +50,7 @@ def compute_per_year_metrics(financials_5y: List[YearFinancialInput]) -> Dict[in
     """
     metrics = {}
     sorted_fin = sorted(financials_5y, key=lambda x: extract_year_int(x.year))
+    print(f"DEBUG: Sorted financial years: {[f.year for f in sorted_fin]}")
 
     for f in sorted_fin:
         # Core WC Metrics
@@ -80,5 +81,5 @@ def compute_per_year_metrics(financials_5y: List[YearFinancialInput]) -> Dict[in
             "nwc": nwc,
             "nwc_ratio": nwc_ratio,
         }
-
+    print(f"DEBUG: Computed per year metrics: {metrics}")
     return metrics
