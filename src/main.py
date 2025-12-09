@@ -27,10 +27,20 @@ from src.app.borrowing_module.debt_models import (
 from src.app.borrowing_module.debt_orchestrator import run_borrowings_module
 
 
-
+# =============================================================
+# IMPORT LIQUIDITY MODULE
+# =============================================================
+from src.app.liquidity_module.liquidity_models import (
+    YearFinancials as LiquidityYearFinancials,
+    LiquidityThresholds,
+    LiquidityModuleInput,
+)
+from src.app.liquidity_module.liquidity_orchestrator import (
+    LiquidityModule
+    )
 
 # ---------------------------------------------------------
-# REQUEST MODELS
+# REQUEST MODELS FOR BORROWINGS 
 # ---------------------------------------------------------
 
 class FinancialYearInput(BaseModel):
@@ -76,37 +86,127 @@ class AnalyzeRequest(BaseModel):
 
 
 # ---------------------------------------------------------
+# REQUEST MODELS FOR LIQUIDITY MODULE
+# ---------------------------------------------------------
+class LiquidityYearInput(BaseModel):
+    year: int
+    cash_equivalents: float
+    investments: float
+    Trade_receivables: float
+    inventories: float
+    # current_assets: float
+    other_liability_items: float
+    working_capital_changes: float
+    profit_from_operations: float
+    direct_taxes: float
+    expenses: float
+    depreciation: float
+    lease_liabilities: float
+    other_borrowings: float
+    # current_liabilities: float
+    short_term_debt: float
+
+    long_term_debt: float
+    # operating_cash_flow: float
+    interest: float
+    # daily_operating_expenses: float
+    cash_from_operating_activity: float
+    interest_paid_fin: float
+    preference_capital: float
+
+class LiquidityData(BaseModel):
+    financial_years : list[LiquidityYearInput]
+
+
+class LiquidityAnalyzeRequest(BaseModel):
+    company: str
+
+    # list of 5-year data
+    financial_data: LiquidityData
+    # industry thresholds
+    thresholds: LiquidityThresholds
+
+
+# ---------------------------------------------------------
 # FASTAPI APP
 # ---------------------------------------------------------
 app = FastAPI(
-    title="Borrowings Analytical Engine",
-    version="1.0",
-    description="API for 1-year borrowings analysis"
+    title="Financial Analytical Engine",
+    version="2.0",
+    description="API for Borrowings + Liquidity Analysis"
 )
 
 
-# ---------------------------------------------------------
-# MAIN API
-# ---------------------------------------------------------
-@app.post("/analyze")
-def analyze(req: AnalyzeRequest):
+
+
+# =============================================================
+# 2️⃣  LIQUIDITY ENDPOINT
+# =============================================================
+@app.post("/analyze/liquidity")
+def analyze_liquidity(req: LiquidityAnalyzeRequest):
+    try:
+        company = req.company.upper()
+
+        # Convert to liquidity models
+        fin_list = []
+        for fy in req.financial_data.financial_years:
+            # Calculate current_assets if not provided
+            inventory = fy.inventories
+            cash_equivalents = fy.cash_equivalents
+            total_debt = fy.short_term_debt  + fy.long_term_debt + fy.lease_liabilities + fy.other_borrowings + fy.preference_capital
+            print(f"Processing Year: {fy.year} : {fy.short_term_debt} + {fy.other_liability_items} + {fy.long_term_debt} + {fy.lease_liabilities} + {fy.other_borrowings} + {fy.preference_capital}")
+            print("Total Debt Calculated:", total_debt)
+            current_assets = fy.investments + fy.inventories + fy.Trade_receivables
+            current_liablities = fy.short_term_debt + fy.other_liability_items
+            operating_cash_flow = fy.profit_from_operations + fy.working_capital_changes - fy.direct_taxes
+            daily_expenses =( fy.expenses - fy.depreciation )/ 365
+            marketable_securities = fy.investments
+            receivables = fy.Trade_receivables
+            fin_list.append(
+            LiquidityYearFinancials(
+                **{**fy.model_dump(),"inventory": inventory, "cash_and_equivalents": cash_equivalents,
+                   "current_assets": current_assets , "current_liabilities": current_liablities , 
+                   "operating_cash_flow": operating_cash_flow , "daily_operating_expenses": daily_expenses , 
+                   "total_debt" : total_debt, "marketable_securities": marketable_securities,
+                   "receivables": receivables , "interest_expense": fy.interest_paid_fin}
+            )
+            )
+
+        module_input = LiquidityModuleInput(
+            company_id=company,
+            industry_code="GENERAL",
+            financials_5y=fin_list,
+            industry_liquidity_thresholds=req.thresholds,
+        )
+
+        module = LiquidityModule()
+
+        result = module.run(module_input)
+        return result.model_dump()
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+# =============================================================
+# 1️⃣  BORROWINGS ENDPOINT
+# =============================================================
+@app.post("/analyze/borrowings")
+def analyze_borrowings(req: AnalyzeRequest):
     try:
         company = req.company.upper()
         fd = req.financial_data
-
         fds = fd.financial_years
-        
+
         yfis = []
-        
         for fy in fds:
             yfi = YearFinancialInput(
-                year=fy.year,   
+                year=fy.year,
                 short_term_debt=fy.short_term_debt,
                 long_term_debt=fy.long_term_debt,
                 total_equity=fy.total_equity,
                 revenue=fy.revenue,
                 ebitda=fy.ebitda,
-                ebit=fy.ebit,   
+                ebit=fy.ebit,
                 finance_cost=fy.finance_cost,
                 capex=fy.capex,
                 cwip=fy.cwip,
@@ -119,44 +219,10 @@ def analyze(req: AnalyzeRequest):
             )
             yfis.append(yfi)
 
-            
-        # midd = {
-
-        #     "total_debt_maturing_lt_1y" : fd.total_debt_maturing_lt_1y,
-        #     "total_debt_maturing_1_3y" : fd.total_debt_maturing_1_3y,
-        #     "total_debt_maturing_gt_3y" : fd.total_debt_maturing_gt_3y,
-
-        #     "weighted_avg_interest_rate" : fd.weighted_avg_interest_rate,
-        #     "floating_rate_debt" : fd.floating_rate_debt or 0,
-        #     "fixed_rate_debt" : fd.fixed_rate_debt,
-            
-        # }        
-        
-        # fin = YearFinancialInput(
-        #         # year=fd.year,
-        #         # short_term_debt=fd.short_term_debt,
-        #         # long_term_debt=fd.long_term_debt,
-        #         # total_equity=fd.total_equity,
-        #         # ebitda=fd.ebitda,
-        #         # ebit=fd.ebit,
-        #         # finance_cost=fd.finance_cost,
-        #         # capex=fd.capex,
-        #         # cwip=fd.cwip,
-        #     financial_years = fds,
-
-        #     total_debt_maturing_lt_1y=fd.total_debt_maturing_lt_1y,
-        #     total_debt_maturing_1_3y=fd.total_debt_maturing_1_3y,
-        #     total_debt_maturing_gt_3y=fd.total_debt_maturing_gt_3y,
-
-        #     weighted_avg_interest_rate=fd.weighted_avg_interest_rate,
-        #     floating_rate_debt=fd.floating_rate_debt,
-        #     fixed_rate_debt=fd.fixed_rate_debt,
-        # )   
-
         module_input = BorrowingsInput(
             company_id=company,
             industry_code="GENERAL",
-            financials_5y=yfis,  # ONLY ONE YEAR USED
+            financials_5y=yfis,   # supports multi-year
             industry_benchmarks=IndustryBenchmarks(
                 target_de_ratio=1.5,
                 max_safe_de_ratio=2.5,

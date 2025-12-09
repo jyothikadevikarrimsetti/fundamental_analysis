@@ -1,58 +1,82 @@
+# liquidity_metrics.py
+
+from typing import Dict
+from .liquidity_models import YearFinancials
+
+
 def safe_div(a, b):
-    if b is None or b == 0:
-        return None
-    return a / b
+    """Safely divide two numbers, returning None if division is invalid."""
+    return a / b if (a is not None and b not in (0, None)) else None
 
 
-def compute_year_metrics(y):
+def compute_per_year_metrics(financials_5y: list[YearFinancials]) -> Dict[int, dict]:
+    """
+    Calculate key liquidity metrics for each year.
 
-    return {
+    Returns:
+        Dict mapping year -> metrics dictionary
+    """
+    metrics = {}
 
-        "current_ratio" : safe_div(y.current_assets, y.current_liabilities),
+    sorted_fin = sorted(financials_5y, key=lambda x: x.year)
 
-        "quick_ratio" : safe_div(
-            (y.current_assets - y.inventory),
-            y.current_liabilities
-        ),
+    for y in sorted_fin:
+        total_debt = getattr(y, "total_debt", 0.0) or 0.0
+        daily_expenses = getattr(y, "daily_operating_expenses", None) or 0.0
 
-        "cash_ratio": safe_div(
-            y.cash_and_equivalents,
-            y.current_liabilities
-        ),
+        cash = y.cash_and_equivalents or 0.0
+        marketable_sec = y.marketable_securities or 0.0
+        receivables = y.receivables or 0.0
+        inventory = y.inventory or 0.0
 
-        "defensive_interval_ratio": safe_div(
-            (y.cash_and_equivalents + y.marketable_securities + y.receivables),
-            y.daily_operating_expenses
-        ),
+        current_assets = y.current_assets or 0.0
+        current_liabilities = y.current_liabilities or 0.0
+        short_term_debt = y.short_term_debt or 0.0
+        ocf = y.operating_cash_flow or 0.0
+        interest = y.interest_expense or 0.0
 
-        "ocf_to_current_liabilities": safe_div(
-            y.operating_cash_flow,
-            y.current_liabilities
-        ),
+        liquid_assets = cash + marketable_sec + receivables
 
-        "ocf_to_total_debt": safe_div(
-            y.operating_cash_flow,
-            y.total_debt
-        ),
+        metrics[y.year] = {
+            "year": y.year,
 
-        "interest_coverage_ocf": safe_div(
-            y.operating_cash_flow,
-            y.interest_expense
-        ),
+            # ---------- Liquidity Ratios ----------
+            "current_ratio": safe_div(current_assets, current_liabilities),
 
-        "cash_coverage_st_debt": safe_div(
-            y.cash_and_equivalents,
-            y.short_term_debt
-        ),
-    }
+            "quick_ratio": safe_div(
+                current_assets - inventory,
+                current_liabilities
+            ),
 
-    # return {
-    #     "current_ratio": cr,
-    #     "quick_ratio": qr,
-    #     "cash_ratio": cash_ratio,
-    #     "dir_days": dir_days,
-    #     "ocf_cl": ocf_cl,
-    #     "ocf_debt": ocf_debt,
-    #     "interest_cov_ocf": interest_cov_ocf,
-    #     "cash_cov_st": cash_cov_st,
-    # }
+            "cash_ratio": safe_div(
+                cash,
+                current_liabilities
+            ),
+
+            # ---------- Defensive Interval Ratio ----------
+            # How many days the company can operate using liquid assets
+            "defensive_interval_ratio_days": safe_div(
+                liquid_assets,
+                daily_expenses
+            ),
+
+            # ---------- Cash Flow Coverage Ratios ----------
+            "ocf_to_current_liabilities": safe_div(ocf, current_liabilities),
+            "ocf_to_total_debt": safe_div(ocf, total_debt),
+            "interest_coverage_ocf": safe_div(ocf, interest),
+            "cash_coverage_st_debt": safe_div(cash, short_term_debt),
+
+            # ---------- Core Balances ----------
+            "cash_and_equivalents": cash,
+            "marketable_securities": marketable_sec,
+            "receivables": receivables,
+            "inventory": inventory,
+            "current_assets": current_assets,
+            "current_liabilities": current_liabilities,
+            "short_term_debt": short_term_debt,
+            "total_debt": total_debt,
+            "operating_cash_flow": ocf,
+            "daily_operating_expenses": daily_expenses,
+        }
+
+    return metrics
