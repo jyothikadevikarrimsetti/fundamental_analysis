@@ -40,15 +40,24 @@ DEFAULT_BENCHMARKS = IndustryBenchmarks(
     high_floating_share=0.60,
     high_wacd=0.12,
 )
-
+# =============================================================
+# IMPORT LIQUIDITY MODULE
+# =============================================================
+from src.app.liquidity_module.liquidity_models import (
+    LiquidityModuleInput,
+)
+from src.app.liquidity_module.liquidity_orchestrator import (
+    LiquidityModule,
+    build_financial_list,  # Add this import
+)
 
 # ---------------------------------------------------------
 # FASTAPI APP
 # ---------------------------------------------------------
 app = FastAPI(
-    title="Borrowings Analytical Engine",
-    version="1.0",
-    description="API for 1-year borrowings analysis"
+    title="Financial Analytical Engine",
+    version="2.0",
+    description="API for Borrowings + Liquidity Analysis"
 )
 
 DEFAULT_COVENANTS = CovenantLimits(
@@ -58,9 +67,6 @@ DEFAULT_COVENANTS = CovenantLimits(
 )
 
 DEFAULT_ASSET_BENCHMARKS = IndustryAssetBenchmarks()
-
-
-
 
 # ---------- FastAPI App ----------
 app = FastAPI(
@@ -142,6 +148,29 @@ async def analyze(req: Request):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+@app.post("/liquidity/analyze")
+async def analyze_liquidity(req: Request):
+    try:
+        req_data = await req.json()
+        company = req_data["company"].upper()
+
+        # Convert to liquidity models
+        fin_list = build_financial_list(req_data)
+
+        module_input = LiquidityModuleInput(
+            company_id=company,
+            industry_code="GENERAL",
+            financials_5y=fin_list,
+            # industry_liquidity_thresholds=req_data["thresholds"],
+        )
+
+        module = LiquidityModule()
+
+        result = module.run(module_input)
+        return result.model_dump()
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 if __name__ == "__main__":
     import uvicorn
