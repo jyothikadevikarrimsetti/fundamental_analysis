@@ -4,7 +4,7 @@
 
 import os
 import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -36,8 +36,9 @@ from src.app.liquidity_module.liquidity_models import (
     LiquidityModuleInput,
 )
 from src.app.liquidity_module.liquidity_orchestrator import (
-    LiquidityModule
-    )
+    LiquidityModule,
+    build_financial_list,  # Add this import
+)
 
 # ---------------------------------------------------------
 # REQUEST MODELS FOR BORROWINGS 
@@ -85,47 +86,6 @@ class AnalyzeRequest(BaseModel):
     financial_data: FinancialData   # <-- EXACT INPUT YOU WANTED
 
 
-# ---------------------------------------------------------
-# REQUEST MODELS FOR LIQUIDITY MODULE
-# ---------------------------------------------------------
-class LiquidityYearInput(BaseModel):
-    year: int
-    cash_equivalents: float
-    investments: float
-    Trade_receivables: float
-    inventories: float
-    # current_assets: float
-    other_liability_items: float
-    working_capital_changes: float
-    profit_from_operations: float
-    direct_taxes: float
-    expenses: float
-    depreciation: float
-    lease_liabilities: float
-    other_borrowings: float
-    # current_liabilities: float
-    short_term_debt: float
-
-    long_term_debt: float
-    # operating_cash_flow: float
-    interest: float
-    # daily_operating_expenses: float
-    cash_from_operating_activity: float
-    interest_paid_fin: float
-    preference_capital: float
-
-class LiquidityData(BaseModel):
-    financial_years : list[LiquidityYearInput]
-
-
-class LiquidityAnalyzeRequest(BaseModel):
-    company: str
-
-    # list of 5-year data
-    financial_data: LiquidityData
-    # industry thresholds
-    thresholds: LiquidityThresholds
-
 
 # ---------------------------------------------------------
 # FASTAPI APP
@@ -142,41 +102,20 @@ app = FastAPI(
 # =============================================================
 # 2️⃣  LIQUIDITY ENDPOINT
 # =============================================================
-@app.post("/analyze/liquidity")
-def analyze_liquidity(req: LiquidityAnalyzeRequest):
+@app.post("/liquidity/analyze")
+async def analyze_liquidity(req: Request):
     try:
-        company = req.company.upper()
+        req_data = await req.json()
+        company = req_data["company"].upper()
 
         # Convert to liquidity models
-        fin_list = []
-        for fy in req.financial_data.financial_years:
-            # Calculate current_assets if not provided
-            inventory = fy.inventories
-            cash_equivalents = fy.cash_equivalents
-            total_debt = fy.short_term_debt  + fy.long_term_debt + fy.lease_liabilities + fy.other_borrowings + fy.preference_capital
-            print(f"Processing Year: {fy.year} : {fy.short_term_debt} + {fy.other_liability_items} + {fy.long_term_debt} + {fy.lease_liabilities} + {fy.other_borrowings} + {fy.preference_capital}")
-            print("Total Debt Calculated:", total_debt)
-            current_assets = fy.investments + fy.inventories + fy.Trade_receivables
-            current_liablities = fy.short_term_debt + fy.other_liability_items
-            operating_cash_flow = fy.profit_from_operations + fy.working_capital_changes - fy.direct_taxes
-            daily_expenses =( fy.expenses - fy.depreciation )/ 365
-            marketable_securities = fy.investments
-            receivables = fy.Trade_receivables
-            fin_list.append(
-            LiquidityYearFinancials(
-                **{**fy.model_dump(),"inventory": inventory, "cash_and_equivalents": cash_equivalents,
-                   "current_assets": current_assets , "current_liabilities": current_liablities , 
-                   "operating_cash_flow": operating_cash_flow , "daily_operating_expenses": daily_expenses , 
-                   "total_debt" : total_debt, "marketable_securities": marketable_securities,
-                   "receivables": receivables , "interest_expense": fy.interest_paid_fin}
-            )
-            )
+        fin_list = build_financial_list(req_data)
 
         module_input = LiquidityModuleInput(
             company_id=company,
             industry_code="GENERAL",
             financials_5y=fin_list,
-            industry_liquidity_thresholds=req.thresholds,
+            # industry_liquidity_thresholds=req_data["thresholds"],
         )
 
         module = LiquidityModule()
