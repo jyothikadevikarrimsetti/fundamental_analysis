@@ -188,6 +188,7 @@ class WorkingCapitalModule:
             "dio": latest.get("dio"),
             "dpo": latest.get("dpo"),
             "ccc": latest.get("ccc"),
+            "cogs": latest.get("cogs"),
             "nwc_ratio": latest.get("nwc_ratio"),
             "revenue": latest.get("revenue"),
             "nwc": latest.get("nwc"),
