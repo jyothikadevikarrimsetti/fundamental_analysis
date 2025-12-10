@@ -219,6 +219,7 @@ def parse_percent(val):
         val = val.strip().replace('%', '')
     return float(val)
 
+
 def run_working_capital_module(payload: dict):
     print("\n\n******** WC MODULE INVOKED ********")
     print("DEBUG: Incoming payload keys:", payload.keys())
@@ -230,11 +231,11 @@ def run_working_capital_module(payload: dict):
             # Ensure required keys exist and are numeric
             try:
                 manufacturing_cost =parse_percent(k.get("manufacturing_cost", 0))
-                other_cost = parse_percent(k.get("other_cost", 0))
+                # other_cost = parse_percent(k.get("other_cost", 0))
                 material_cost = parse_percent(k.get("material_cost", 0))
                 revenue = k.get("revenue", 0)
                 # Calculate cogs as per the formula
-                k["cogs"] = revenue * (manufacturing_cost + other_cost + material_cost) / 100
+                k["cogs"] = revenue * (manufacturing_cost + material_cost) / 100
                 print(f"DEBUG: Financial year data - Year: {k.get('year')}")
             except Exception as e:
                 print(f"ERROR processing financial year data: {e}")
