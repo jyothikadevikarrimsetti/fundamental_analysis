@@ -16,6 +16,7 @@ env:
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
   ECR_REPOSITORY: lambda/fundamental-analysis
   LAMBDA_FUNCTION_NAME: fundamental-analysis-api
+  LAMBDA_ROLE_NAME: fundamental-analysis-lambda-role
 
 jobs:
   deploy:
@@ -96,15 +97,48 @@ jobs:
           
           echo "image_uri=$ECR_URI:latest" >> $GITHUB_OUTPUT
 
-      - name: Update Lambda function code
+      - name: Create Lambda execution role if not exists
+        run: |
+          ROLE_ARN=$(aws iam get-role --role-name ${{ env.LAMBDA_ROLE_NAME }} --query 'Role.Arn' --output text 2>/dev/null) || true
+          
+          if [ -z "$ROLE_ARN" ] || [ "$ROLE_ARN" == "None" ]; then
+            echo "Creating Lambda execution role..."
+            
+            # Create the role
+            aws iam create-role \
+              --role-name ${{ env.LAMBDA_ROLE_NAME }} \
+              --assume-role-policy-document '{
+                "Version": "2012-10-17",
+                "Statement": [{
+                  "Effect": "Allow",
+                  "Principal": {"Service": "lambda.amazonaws.com"},
+                  "Action": "sts:AssumeRole"
+                }]
+              }'
+            
+            # Attach basic execution policy
+            aws iam attach-role-policy \
+              --role-name ${{ env.LAMBDA_ROLE_NAME }} \
+              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+            
+            echo "Waiting for role to propagate..."
+            sleep 10
+            
+            echo "Lambda execution role created successfully!"
+          else
+            echo "Lambda execution role already exists: $ROLE_ARN"
+          fi
+
+      - name: Create or Update Lambda function
         env:
           ECR_URI: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}
         run: |
           IMAGE_URI=$ECR_URI:latest
+          ROLE_ARN="arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.LAMBDA_ROLE_NAME }}"
           
           # Check if Lambda function exists
           if aws lambda get-function --function-name ${{ env.LAMBDA_FUNCTION_NAME }} 2>/dev/null; then
-            echo "Updating Lambda function with new image..."
+            echo "Updating existing Lambda function..."
             aws lambda update-function-code \
               --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
               --image-uri $IMAGE_URI
@@ -115,9 +149,21 @@ jobs:
             
             echo "Lambda function code updated successfully!"
           else
-            echo "::error::Lambda function '${{ env.LAMBDA_FUNCTION_NAME }}' does not exist."
-            echo "Please create it first using AWS Console or CLI."
-            exit 1
+            echo "Creating new Lambda function..."
+            aws lambda create-function \
+              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --package-type Image \
+              --code ImageUri=$IMAGE_URI \
+              --role $ROLE_ARN \
+              --timeout 60 \
+              --memory-size 512 \
+              --environment "Variables={OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}}"
+            
+            echo "Waiting for Lambda function to be active..."
+            aws lambda wait function-active \
+              --function-name ${{ env.LAMBDA_FUNCTION_NAME }}
+            
+            echo "Lambda function created successfully!"
           fi
 
       - name: Update Lambda environment variables
