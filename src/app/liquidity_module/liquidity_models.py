@@ -48,7 +48,7 @@ class LiquidityModuleInput(BaseModel):
     company_id: str
     industry_code: str
     financials_5y: List[YearFinancials]
-    industry_liquidity_thresholds: LiquidityThresholds
+    # industry_liquidity_thresholds: LiquidityThresholds
 
 
 # ---------------------------------------------------------

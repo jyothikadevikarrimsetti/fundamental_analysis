@@ -77,7 +77,6 @@ INPUT:
     )
 
     content = response.choices[0].message.content
-    print("LLM Raw Response:", content, flush=True)
 
     # Strip markdown code blocks if present
     if content.startswith("```"):
@@ -90,7 +89,7 @@ INPUT:
 
 
     try:
-        print("Parsing LLM liquidity narrative response...", flush=True)
+        #print("Parsing LLM liquidity narrative response...", flush=True)
         parsed = json.loads(content)
         narrative = parsed.get("analysis_narrative") or deterministic_notes
         trend_insights = parsed.get("trend_insights") or {}
