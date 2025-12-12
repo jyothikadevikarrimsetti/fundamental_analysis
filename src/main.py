@@ -23,15 +23,28 @@ from src.app.borrowing_module.debt_models import (
 )
 from src.app.borrowing_module.debt_orchestrator import BorrowingsModule
 
-from src.app.asset_quality_module.asset_models import (
-    AssetQualityInput,
-    AssetFinancialYearInput,
-    IndustryAssetBenchmarks,
+# from src.app.asset_quality_module.asset_models import (
+#     AssetQualityInput,
+#     AssetFinancialYearInput,
+#     IndustryAssetBenchmarks,
+# )
+
+
+from src.app.asset_intangible_quality_module.aiqm_orchestrator import AssetIntangibleQualityModule
+from src.app.asset_intangible_quality_module.aiqm_models import (
+    AssetIntangibleInput,
+    YearAssetIntangibleInput,
+    AssetIntangibleBenchmarks,
+    FinancialDataBlock,
 )
-from src.app.asset_quality_module.asset_orchestrator import AssetIntangibleQualityModule
+
+
 from src.app.borrowing_module.debt_orchestrator import BorrowingsModule
 from src.app.capex_cwip_module.orchestrator import CapexCwipModule
 
+from src.app.asset_intangible_quality_module.aiqm_orchestrator import run_aiqm_module
+
+from src.app.asset_intangible_quality_module.aiqm_models import AssetIntangibleInput
 
 DEFAULT_BENCHMARKS = IndustryBenchmarks(
     target_de_ratio=0.5,
@@ -67,7 +80,7 @@ DEFAULT_COVENANTS = CovenantLimits(
     debt_ebitda_limit=4.0,
 )
 
-DEFAULT_ASSET_BENCHMARKS = IndustryAssetBenchmarks()
+# DEFAULT_ASSET_BENCHMARKS = IndustryAssetBenchmarks()
 
 
 borrowings_engine = BorrowingsModule()
@@ -98,27 +111,27 @@ async def analyze_borrowings(req: AnalysisRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/asset_quality/analyze")
-async def analyze_asset_quality(req: AnalysisRequest):
-    try:
-        req = req.dict()
-        financial_years = [
-            AssetFinancialYearInput(**fy)
-            for fy in req["financial_data"]["financial_years"]
-        ]
+# @app.post("/asset_quality/analyze")
+# async def analyze_asset_quality(req: AnalysisRequest):
+#     try:
+#         req = req.dict()
+#         financial_years = [
+#             AssetFinancialYearInput(**fy)
+#             for fy in req["financial_data"]["financial_years"]
+#         ]
 
-        module_input = AssetQualityInput(
-            company_id=req.company.upper(),
-            industry_code=(req.industry_code or "GENERAL").upper(),
-            financials_5y=financial_years,
-            industry_asset_quality_benchmarks=DEFAULT_ASSET_BENCHMARKS,
-        )
-        result = asset_quality_engine.run(module_input)
-        return result.dict()
-    except ValidationError as ve:
-        raise HTTPException(status_code=422, detail=ve.errors())
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+#         module_input = AssetQualityInput(
+#             company_id=req.company.upper(),
+#             industry_code=(req.industry_code or "GENERAL").upper(),
+#             financials_5y=financial_years,
+#             industry_asset_quality_benchmarks=DEFAULT_ASSET_BENCHMARKS,
+#         )
+#         result = asset_quality_engine.run(module_input)
+#         return result.dict()
+#     except ValidationError as ve:
+#         raise HTTPException(status_code=422, detail=ve.errors())
+#     except Exception as exc:
+#         raise HTTPException(status_code=500, detail=str(exc))
 
 @app.post("/working_capital_module/analyze")
 async def analyze(request: AnalysisRequest):
@@ -166,6 +179,24 @@ async def analyze_liquidity(req: AnalysisRequest):
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/asset_intangible_quality/analyze")
+async def analyze_asset_quality(req: Request):
+    try:
+        req_data = await req.json()
+
+        # LET PYDANTIC PARSE NESTED STRUCTURES AUTOMATICALLY
+        module_input = AssetIntangibleInput(**req_data)
+
+        result = asset_quality_engine.run(module_input)
+        return result.dict()
+
+    except ValidationError as ve:
+        raise HTTPException(status_code=422, detail=ve.errors())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
 
 if __name__ == "__main__":
     import uvicorn
