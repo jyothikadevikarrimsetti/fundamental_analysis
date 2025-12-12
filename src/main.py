@@ -52,13 +52,21 @@ from src.app.liquidity_module.liquidity_orchestrator import (
     build_financial_list,  # Add this import
 )
 
+# =============================================================
+# IMPORT RISK MODULE
+# =============================================================
+from src.app.risk_scenario_detection_module.risk_orchestrator import (
+    RiskOrchestrator,   
+)
+
+
 # ---------------------------------------------------------
 # FASTAPI APP
 # ---------------------------------------------------------
 app = FastAPI(
     title="Financial Analytical Engine",
     version="2.0",
-    description="API for Borrowings + Liquidity Analysis"
+    description="API for Borrowings + Liquidity Analysis + Risk Scenario Detection Modules"
 )
 
 DEFAULT_COVENANTS = CovenantLimits(
@@ -72,6 +80,7 @@ DEFAULT_ASSET_BENCHMARKS = IndustryAssetBenchmarks()
 
 borrowings_engine = BorrowingsModule()
 asset_quality_engine = AssetIntangibleQualityModule()
+risk_engine = RiskOrchestrator()  
 
 
 @app.post("/borrowings/analyze")
@@ -166,9 +175,19 @@ async def analyze_liquidity(req: AnalysisRequest):
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+    
+@app.post("/risk/analyze")
+async def analyze_risk(req: AnalysisRequest):
+    try:
+        req_data = req.dict()
+        result = await risk_engine.run(req_data)  # async call to RiskOrchestrator
+        return result
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    
 
 if __name__ == "__main__":
     import uvicorn
 
 
-    uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("src.main:app", host="127.0.0.1", port=8000, reload=True)

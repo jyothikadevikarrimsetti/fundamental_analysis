@@ -11,8 +11,9 @@ class FinancialYearData(BaseModel):
     cwip: float
     lease_liabilities: float
     other_borrowings: float
+    other_income: float
     trade_payables: float
-    Trade_receivables: float  # Keeping original casing from JSON
+    trade_receivables: float  # Keeping original casing from JSON
     advance_from_customers: float
     other_liability_items: float
     inventories: float
@@ -38,7 +39,14 @@ class FinancialYearData(BaseModel):
     direct_taxes: float
     interest_paid_fin: float
     cash_from_operating_activity: float
-
+    proceeds_from_borrowings: float
+    repayment_of_borrowings: float
+    dividends_paid: float
+    total_assets: float
+    operating_profit: float
+    net_profit: float
+    fixed_assets: float
+    borrowings: float
 
 class FinancialData(BaseModel):
     financial_years: List[FinancialYearData]
